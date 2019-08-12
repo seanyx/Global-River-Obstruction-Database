@@ -1,0 +1,24 @@
+---
+title: "Map North America Dams"
+author: "Xiao Yang"
+date: "11/1/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+world = map(database = "world", fill = T)
+test = st_as_sf(world)
+basemap = test %>% filter(ID == "Canada" | ID == "Mexico" |ID == "USA")
+
+dams = csv_all %>% st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+dams %>%
+  ggplot() +
+  # geom_sf(data = basemap, fill = "black", color = NA) +
+  geom_sf(aes(color = class))
+```
+

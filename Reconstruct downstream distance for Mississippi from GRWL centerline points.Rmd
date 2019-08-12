@@ -1,0 +1,79 @@
+---
+title: "Reconstruct downstream distance for Mississippi from GRWL centerline points"
+author: "Xiao Yang"
+date: "7/26/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(sf)
+require(tidyverse)
+require(RANN)
+require(foreach)
+source("~/Google_Drive/GROD/recon_cl.R")
+
+dat_sf = st_read("~/Google_Drive/GROD/mississippi_grwl.shp") %>% 
+  st_transform(crs = 32615) %>% 
+  mutate(
+    x = st_coordinates(geometry)[, 1],
+    y = st_coordinates(geometry)[, 2]
+  )
+
+dat = dat_sf %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble()
+
+dat_input = dat %>% 
+  select(x, y, lon, lat)
+
+cl = recon_cl(dat_input, reach_length = 10000)
+
+save(cl, file = "~/Google_Drive/GROD/outputs/mississippi_cl.RData")
+
+load("~/Google_Drive/GROD/outputs/mississippi_cl.RData", verbose = T)
+
+reach_sf = cl %>%
+  inner_join(dat %>% select(lon, lat, width_m, elev_m), by = c("lon", "lat")) %>%
+  # select(lon, lat, reachId, segOrder, wdith) %>%
+  group_by(segId) %>%
+  arrange(ddist) %>%
+  summarise(
+    g = st_sfc(st_linestring(as.matrix(cbind(lon, lat))), crs = 4326),
+    width_median = median(width_m),
+    elev_median = median(elev_m),
+    n = n(),
+    length = max(ddist)) %>%
+  ungroup() %>% 
+  filter(n > 1) %>% 
+  st_as_sf(crs = 4326, sf_column_name = "g")
+
+plot(reach_sf["elev_median"])
+
+plot(reach_sf %>% filter(length >= 20000) %>% select(length))
+
+mapview::mapView(reach_sf["length"])
+```
+
+st_join with distance
+
+```{r}
+straightSegments = cl %>% 
+  group_by(segId) %>% 
+  filter(ddist == min(ddist) | ddist == max(ddist)) %>% 
+  summarise(
+    g = st_sfc(st_linestring(as.matrix(cbind(lon, lat))), crs = 4326),
+    length = max(ddist)) %>% 
+  ungroup %>% 
+  st_as_sf(crs = 4326, sf_column_name = "g")
+
+plot(straightSegments %>% filter(length >= 10000) %>% select(length))
+
+test = straightSegments %>% 
+  st_transform(crs = 32615)
+
+
+```
+
