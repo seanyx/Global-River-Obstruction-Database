@@ -1,0 +1,21 @@
+---
+title: "Downstream distance Mississippi"
+author: "Xiao Yang"
+date: "1/24/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(sf)
+require(tidyverse)
+load("outputs/mississippi_profile.RData", verbose = T)
+```
+
+```{r}
+mapview::mapview(river_node, zcol = "ddist_node")
+
+st_write(river_node, dsn = "outputs/mississippi_node_downstream_dist.shp")
+```
+
