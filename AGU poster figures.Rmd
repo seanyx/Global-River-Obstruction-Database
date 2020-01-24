@@ -1,0 +1,1463 @@
+---
+title: "AGU poster figures"
+author: "Xiao Yang"
+date: "9/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(tidyverse)
+require(sf)
+
+world = st_read("~/Google_Drive/Global_lake_ice_dataset/outputs/world_robinson.shp")
+
+world = st_as_sf(rnaturalearthdata::countries50) %>% select() %>% st_buffer(0) %>% st_union()
+```
+
+## global map
+
+```{r}
+# load("outputs/GROD_20190912_raw.RData", verbose = T)
+dat = read_sf("outputs/GROD_dupesRemoved_20191028.shp")
+
+dat_fil = dat %>% 
+  mutate(class = as.factor(class)) %>% 
+  mutate(lon = st_coordinates(geometry)[, 1],
+         lat = st_coordinates(geometry)[, 2]) %>% 
+  as.data.frame() %>% 
+  select(-name, -geometry) %>% 
+  as_tibble() %>% 
+  distinct()
+
+dat_fil %>% 
+  group_by(class) %>% 
+  count() %>% 
+  ungroup()
+
+dat_fil = dat_fil %>% 
+  filter(!(class %in% c("Roads", "uncertain", "partial_dams", "Others", "Natural_riffles")))
+
+dat_fil = dat_fil %>% 
+  mutate(class_newnames = factor(class, levels = c("Dam", "Locks", "Channel_Dams", "Low_Permeable_Dams", "Partial_Dams_gte50", "Partial_Dams_lt50", "Uncertain"), labels = c("Dam", "Lock", "Channel Dam", "Low head Dam", "Partial Dam", "Partial Dam", "Uncertain"), ordered = T))
+
+# write_csv(x = dat_fil, path = "outputs/GROD_20190909.csv")
+
+dat_fil_sf = dat_fil %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% 
+  st_transform(crs = 54030)
+
+
+legend_tibble = tibble(class = dat_fil %>% select(class_newnames) %>% distinct %>% pull,
+             x = NA,
+             y = NA)
+
+calculate_map_bounds_robinson = function(minlat = -55, maxlat = 90) {
+  load("~/Google_Drive/global-river-ice-dataset-from-Landsat/outputs/wrs_with_centroid.RData")
+  latlon = wrs_lonlat %>% 
+    filter(lat >= minlat, lat <= maxlat) %>% 
+    st_transform(54030) %>% 
+    st_coordinates()
+  
+  xymin = latlon[, 1:2] %>% apply(2, min)
+  xymax = latlon[, 1:2] %>% apply(2, max)
+  
+  return(list(xymin = xymin, xymax = xymax))
+}
+
+xylim_robinson = calculate_map_bounds_robinson()
+xymin = xylim_robinson[[1]]
+xymax = xylim_robinson[[2]]
+
+# load in grwl
+grwl = st_read("~/Google_Drive/Global-river-discharge-estimation/data/GRWL_summaryStats/GRWL_summaryStats.shp") %>% 
+  st_transform(crs = 54030)
+
+grwl = grwl[st_is_simple(grwl), ]
+
+grod_map = 
+  dat_fil_sf %>%
+  sample_frac(1) %>%
+  ggplot() +
+  geom_sf(data = world, fill = "black", color = NA) +
+  geom_sf(data = grwl, fill = NA, color = "grey20", lwd = 0.3, alpha = 0.3) +
+  geom_sf(aes(color = class_newnames), size = 1, show.legend = F, alpha = 0.9) +
+  # geom_sf(data = world, fill = NA, color = "black", lwd = 1) +
+  coord_sf(crs = st_crs(54030), 
+           xlim = c(xymin[1], xymax[1]), 
+           ylim = c(xymin[2], xymax[2]),
+           expand = T) +
+  geom_point(data = legend_tibble, aes(x, y, color = class), alpha = 0) +
+  scale_color_manual(values = c('red','gold3',"cyan",'#fb8072','darkorchid1', 'grey')) +
+  labs(x = "",
+       y = "", 
+       color = "Category") +
+  guides(color = guide_legend(override.aes = c(size = 3, alpha = 1))) +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title = element_blank(),
+        line = element_blank(),
+        rect = element_blank(),
+        panel.grid = element_blank(),
+        legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.key = element_rect(color = NA, fill = NA),
+        legend.background = element_rect(fill = "black", color = NA),
+        legend.text = element_text(color = "white", face = "bold", size = 36),
+        legend.title = element_blank(),
+        panel.grid.major = element_line(color = "grey", size = 0.5))
+
+grod_map
+
+# grod_map %>% 
+#   ggsave(filename = "figs/agu_figures/grod_map_20191202.png",
+#          width = 16.53,
+#          height = 11.69)
+
+grod_map %>% 
+  ggsave(filename = "figs/agu_figures/grod_map.pdf",
+         width = 59,
+         height = 27,
+         dpi = "print",
+         colormode = "cmyk",
+         limitsize = F)
+```
+
+## global map (for Kathy)
+
+```{r}
+# load("outputs/GROD_20190912_raw.RData", verbose = T)
+dat = read_sf("outputs/GROD_dupesRemoved_20191028.shp")
+
+dat_fil = dat %>% 
+  mutate(class = as.factor(class)) %>% 
+  mutate(lon = st_coordinates(geometry)[, 1],
+         lat = st_coordinates(geometry)[, 2]) %>% 
+  as.data.frame() %>% 
+  select(-name, -geometry) %>% 
+  as_tibble() %>% 
+  distinct()
+
+dat_fil %>% 
+  group_by(class) %>% 
+  count() %>% 
+  ungroup()
+
+dat_fil = dat_fil %>% 
+  filter(!(class %in% c("Roads", "uncertain", "partial_dams", "Others", "Natural_riffles")))
+
+dat_fil = dat_fil %>% 
+  mutate(class_newnames = factor(class, levels = c("Dam", "Locks", "Channel_Dams", "Low_Permeable_Dams", "Partial_Dams_gte50", "Partial_Dams_lt50", "Uncertain"), labels = c("Dam", "Lock", "Channel Dam", "Low head Dam", "Partial Dam", "Partial Dam", "Uncertain"), ordered = T))
+
+# write_csv(x = dat_fil, path = "outputs/GROD_20190909.csv")
+
+dat_fil_sf = dat_fil %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326) %>% 
+  st_transform(crs = 54030)
+
+
+legend_tibble = tibble(class = dat_fil %>% select(class_newnames) %>% distinct %>% pull,
+             x = NA,
+             y = NA)
+
+calculate_map_bounds_robinson = function(minlat = -55, maxlat = 90) {
+  load("~/Google_Drive/global-river-ice-dataset-from-Landsat/outputs/wrs_with_centroid.RData")
+  latlon = wrs_lonlat %>% 
+    filter(lat >= minlat, lat <= maxlat) %>% 
+    st_transform(54030) %>% 
+    st_coordinates()
+  
+  xymin = latlon[, 1:2] %>% apply(2, min)
+  xymax = latlon[, 1:2] %>% apply(2, max)
+  
+  return(list(xymin = xymin, xymax = xymax))
+}
+
+xylim_robinson = calculate_map_bounds_robinson()
+xymin = xylim_robinson[[1]]
+xymax = xylim_robinson[[2]]
+
+# load in grwl
+grwl = st_read("~/Google_Drive/Global-river-discharge-estimation/data/GRWL_summaryStats/GRWL_summaryStats.shp") %>% 
+  st_transform(crs = 54030)
+
+grwl = grwl[st_is_simple(grwl), ]
+
+grod_map = 
+  dat_fil_sf %>%
+  sample_frac(1) %>%
+  ggplot() +
+  geom_sf(data = world, fill = "black", color = NA) +
+  geom_sf(data = grwl, fill = NA, color = "grey30", lwd = 0.2, alpha = 0.5) +
+  geom_sf(data = dat_fil_sf %>% filter(class_newnames == "Uncertain"), aes(color = class_newnames), size = 0.2, show.legend = F, alpha = 0.9) +
+  geom_sf(data = dat_fil_sf %>% filter(class_newnames != "Uncertain"), aes(color = class_newnames), size = 0.2, show.legend = F, alpha = 0.9) +
+  # geom_sf(data = world, fill = NA, color = "black", lwd = 1) +
+  coord_sf(crs = st_crs(54030), 
+           xlim = c(xymin[1], xymax[1]), 
+           ylim = c(xymin[2], xymax[2]),
+           expand = T) +
+  geom_point(data = legend_tibble, aes(x, y, color = class), alpha = 0) +
+  scale_color_manual(values = c('red','gold3',"cyan",'#fb8072','darkorchid1', 'grey')) +
+  labs(x = "",
+       y = "", 
+       color = "Category") +
+  guides(color = guide_legend(override.aes = c(size = 2, alpha = 1))) +
+  theme(axis.text.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title = element_blank(),
+        line = element_blank(),
+        rect = element_blank(),
+        # legend.position = "bottom",
+        legend.direction = "horizontal",
+        legend.key = element_rect(color = NA, fill = NA),
+        legend.background = element_rect(fill = "white", color = NA),
+        legend.text = element_text(color = "black", face = "bold", size = 8),
+        legend.title = element_blank(),
+        panel.grid.major = element_line(color = "white", size = 0.5),
+        legend.position = c(0.6, 0.07))
+
+grod_map
+
+# grod_map %>% 
+#   ggsave(filename = "figs/agu_figures/grod_map_20191202.png",
+#          width = 16.53,
+#          height = 11.69)
+
+grod_map %>% 
+  ggsave(filename = "figs/grod_map_Kathy.png",
+         width = 11,
+         height = 5.3,
+         dpi = "print",
+         limitsize = F)
+```
+
+## per country stats
+
+```{r}
+dat_fil_sf = dat_fil %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+country = st_as_sf(rnaturalearthdata::countries50) %>% 
+  select(name)
+
+## calculate per country river total length
+grwl = st_read("~/Google_Drive/Global-river-discharge-estimation/data/GRWL_summaryStats/GRWL_summaryStats.shp") %>% 
+  mutate(length = st_length(geometry)) %>% 
+  st_centroid()
+
+country_river_length = country %>% 
+  st_join(grwl %>% select(length, geometry)) %>% 
+  group_by(name) %>% 
+  summarise(river_length = sum(length)) %>% 
+  ungroup() %>% 
+  as_data_frame() %>% 
+  select(name, river_length) %>% 
+  as_tibble()
+
+## merge the three datasets: per country river length, country, and dam locations
+dat_fil_joined = dat_fil_sf %>% 
+  st_join(country) %>% 
+  as_data_frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  inner_join(country_river_length, by = "name") %>% 
+  filter(!is.na(river_length))
+
+dat_fil_joined = dat_fil_joined %>% 
+  filter(!is.na(river_length))
+
+stats = dat_fil_joined %>% 
+  group_by(name) %>% 
+  summarise(nobs = n(),
+            river_length = first(river_length),
+            obs_density = nobs / as.numeric(river_length) * 1000) %>% 
+  ungroup()
+  
+country_name_top10_count = (stats %>% 
+  arrange(desc(nobs)))[1:10, ] %>% 
+  select(name) %>% 
+  unlist() %>% 
+  rev()
+
+top10_country_count = (stats %>% 
+  arrange(desc(nobs)))[1:10, ] %>% 
+  select(name) %>% 
+  left_join(dat_fil_joined, by = "name") %>% 
+  mutate(name_ord = factor(name, levels = country_name_top10_count, labels = country_name_top10_count, ordered = T),
+         class_new_ord = factor(class, levels = rev(c("Dam", "Locks", "Channel_Dams", "Low_Permeable_Dams", "Partial_Dams_gte50", "Partial_Dams_lt50", "Uncertain")), labels = rev(c("Dam", "Lock", "Channel Dam", "Low head Dam", "Partial Dam", "Partial Dam", "Uncertain")), ordered = T))
+
+top10_country_count_number = top10_country_count %>% 
+  group_by(name_ord) %>% 
+  count() %>% 
+  ungroup
+
+r = 0.3514598
+
+top10_bar_plot = top10_country_count %>% 
+  ggplot() +
+  geom_bar(aes(x = name_ord, fill = class_new_ord), position = "stack") +
+  geom_text(data = top10_country_count_number, aes(x = name_ord, y = n, label = n), hjust = 0, size = 27 * r, nudge_y = 100, fontface = "bold", color = "darkgrey") +
+  coord_flip() +
+  scale_fill_viridis_d(direction = -1) +
+  # scale_fill_manual(values = c('red','#ffffb3',"cyan",'#fb8072','green', 'grey') %>% rev) +
+  scale_y_continuous(limits = c(0, 11000), expand = c(0, 0)) +
+  scale_x_discrete(expand = c(0, 0)) +
+  labs(y = "",
+       x = "", 
+       # title = "Countries have the most river obstructions (top 10)",
+       fill = "Type of obstruction") +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 27),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y = element_text(color = "black", face = "bold"),
+        legend.position = c(0.7, 0.2),
+        panel.background = element_blank()
+        )
+
+top10_bar_plot %>% 
+  ggsave(filename = "figs/agu_figures/top10_bar_plot.pdf",
+         width = 9,
+         height = 6,
+         dpi = "print")
+
+
+## density top 10
+country_name_top10_density = (stats %>% 
+  arrange(desc(obs_density)))[1:10, ] %>% 
+  select(name) %>% 
+  unlist %>% 
+  rev
+
+top10_density = (stats %>% 
+  arrange(desc(obs_density)))[1:10, ] %>% 
+  mutate(interval = 1 / obs_density,
+         name_ord = factor(name, levels = country_name_top10_density, labels = country_name_top10_density, ordered = T)) %>% 
+  ggplot() +
+  geom_bar(aes(x = name_ord, y = interval), stat = "identity", fill = "orange") +
+  geom_text(aes(x = name_ord, y = interval, label = format(interval, digits = 2)), hjust = 0, size = 27 * r, nudge_y = 0.2, fontface = "bold", color = "darkgrey") +
+  coord_flip() +
+  scale_y_continuous(limits = c(4.5, 11), expand = c(0, 0), oob = scales::squish) +
+  scale_x_discrete(expand = c(0, 0)) +
+  labs(y = "",
+       x = "") +
+  theme(panel.grid = element_blank(),
+        text = element_text(size = 27),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y = element_text(color = "black", face = "bold"),
+        panel.background = element_blank()
+        )
+
+top10_density %>% 
+  ggsave(filename = "figs/agu_figures/top10_density.pdf",
+         width = 9,
+         height = 6,
+         dpi = "print")
+  
+```
+
+## along river profile (Mississippi)
+
+```{r}
+basin_node = st_read("~/Downloads/shp/NA/na_apriori_rivers_nodes_hb74_v01.shp", stringsAsFactors = F)
+basin_reach = st_read("~/Downloads/shp/NA/na_apriori_rivers_reaches_hb74_v01.shp", stringsAsFactors = F)
+
+# basin_reach = basin_reach[st_is_valid(basin_reach), ]
+
+## reproject to buffer via meters
+basin_reach_projected = basin_reach %>% 
+  st_transform(crs = 54030) %>% 
+  mutate(short_id = as.integer(substr(reach_id, start = 3, stop = 10))) %>% 
+  select(reach_id, short_id)
+
+## remove empty geometries
+basin_reach_projected = basin_reach_projected[st_is_valid(basin_reach_projected), ]
+
+start_id = "74299412681"
+this_id = start_id
+result = tibble(index = 1, reach_id = this_id)
+
+## note downstream of 74299302321 does not decrease
+for (i in 2:700) {
+  
+  this_reach = basin_reach_projected %>% 
+    filter(reach_id == this_id)
+  
+  nxt_reach = this_reach %>% 
+    st_buffer(60) %>% 
+    st_join(basin_reach_projected %>% select(reach_id_nxt = reach_id, short_id_nxt = short_id), left = T) %>% 
+    arrange(short_id_nxt) %>% 
+    as.data.frame() %>% 
+    select(-geometry) %>% 
+    as_tibble
+  
+  nxt_reach_id_raw = setdiff(nxt_reach$reach_id_nxt, result$reach_id)
+  
+  nxt_reach_id = (nxt_reach %>% 
+    filter(reach_id_nxt %in% nxt_reach_id_raw) %>% 
+    arrange(short_id_nxt))$reach_id_nxt[1]
+  
+  print(paste0(i, "th ID is ", nxt_reach_id))
+  if (is.na(nxt_reach_id)) {break}
+  
+  result = bind_rows(result, tibble(index = i, reach_id = nxt_reach_id))
+  
+  this_id = nxt_reach_id
+}
+
+result = result %>% 
+  filter(!is.na(reach_id))
+
+save(result, file = "outputs/mississippi_reach_ds_index.RData")
+
+result %>% 
+  inner_join(basin_reach_projected, by = "reach_id") %>% 
+  st_as_sf %>% 
+  ggplot() +
+  geom_sf(data = basin_reach %>% st_transform(crs = 54030), color = "darkgrey") +
+  geom_sf(aes(color = index)) +
+  scale_colour_viridis_c()
+
+river = result %>% 
+  inner_join(basin_reach) %>% 
+  st_as_sf
+
+down_stream_dist = river %>% 
+  group_by(index) %>% 
+  do({
+    this_index = .$index[1]
+    river %>% 
+      filter(index <= this_index) %>% 
+      summarise(ddist = sum(reach_len))
+  }) %>% 
+  ungroup()
+
+river = river %>% 
+  left_join(down_stream_dist %>% as.data.frame() %>% select(index, ddist))
+
+river %>% 
+  st_transform(crs = 54030) %>% 
+  ggplot() +
+  geom_sf(aes(color = ddist / 1000)) +
+  scale_colour_viridis_c() +
+  labs(color = "Downstream\ndist (km)")
+```
+
+
+## make node level table with downstream distance
+
+```{r}
+river_node = basin_node %>% 
+  right_join(result %>% rename(reach_index = index), by = "reach_id") %>% 
+  st_as_sf
+
+# mapview::mapView(river_node["width"], color = NA)
+
+river_node_table = river_node %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  mutate(node_short_id = as.integer(substr(node_id, start = 11, stop = 13)))
+
+## calculate the downstream distance for each node of a reach with regard to the reach head
+ddist_in_reach = river_node_table %>% 
+  group_by(reach_id, node_id) %>% 
+  do({
+    dat = .
+    river_node_table %>% 
+      filter(reach_id == dat$reach_id[1],
+             node_short_id <= dat$node_short_id[1]) %>% 
+      summarise(ddist_in_reach = sum(node_len))
+  }) %>% 
+  ungroup()
+
+## calculate the overall downstream distance of each reach head
+ddist_reach_head = river %>% 
+  as.data.frame() %>% 
+  select(index, reach_id, ddist) %>% 
+  arrange(index) %>% 
+  as_tibble() %>% 
+  mutate()
+
+ddist_reach_head = ddist_reach_head %>% 
+  mutate(ddist_reach_head = ddist - ddist_reach_head$ddist[1]) # set the downstream distance of the most upstream reach head to 0
+
+## calculate overall downstream distance for each node
+
+ddist_node = ddist_in_reach %>% 
+  left_join(ddist_reach_head, by = "reach_id") %>% 
+  mutate(ddist_node = ddist_in_reach + ddist_reach_head) %>% 
+  select(node_id, ddist_node)
+
+river_node = river_node %>% 
+  inner_join(ddist_node, by = "node_id")
+
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse))
+
+
+## assign node id for grod structures nearby the river
+grod_river_node_sf = dat_fil_sf %>% 
+  st_transform(crs = 54030) %>% 
+  st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, width)), largest = T) %>% 
+  filter(!is.na(x)) %>% 
+  st_transform(crs = 4326)
+
+## assign node id to nearby cities
+city_river_node_sf = maps::us.cities %>% 
+  as_tibble %>% 
+  rename(city_name = name,
+         state = country.etc,
+         population = pop) %>% 
+  st_as_sf(crs = 4326, coords = c("long", "lat")) %>% 
+  st_transform(crs = 54030) %>% 
+  st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, 10000)), largest = T) %>% 
+  filter(!is.na(x)) %>% 
+  st_transform(crs = 4326)
+
+## plot grod data on top of river map
+river_node %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = grod_river_node_sf, aes(color = class_newnames), alpha = 0.8)
+
+## plot each category individually
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse)) +
+  geom_point(data = grod_river_node_sf, aes(x = ddist_node, y = wse), color = "red") +
+  geom_point(data = city_river_node_sf, aes(x = ddist_node, y = wse), color = "blue") +
+  facet_wrap(~class_newnames, ncol = 1)
+
+## create different offset for different types of structures
+yoffset = grod_river_node_sf %>% 
+  as.data.frame() %>% 
+  select(class_newnames) %>% 
+  distinct() %>% 
+  as_tibble() %>% 
+  mutate(y_offset = 350 - as.integer(class_newnames) * 50)
+
+grod_river_node_sf = grod_river_node_sf %>% select(-y_offset) %>% 
+  left_join(yoffset, by = "class_newnames")
+
+save(river_node, grod_river_node_sf, city_river_node_sf, file = "outputs/mississippi_profile.RData")
+
+load("outputs/mississippi_profile.RData", verbose = T)
+
+river_profile = river_node %>% 
+  ggplot() +
+  geom_segment(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+  geom_point(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+  geom_segment(data = city_river_node_sf %>% 
+                 mutate(xlower = 1000) %>% 
+                 filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+  geom_point(data = city_river_node_sf %>% 
+               mutate(xlower = 1000) %>% 
+               filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+  geom_text(data = city_river_node_sf %>% 
+               mutate(xlower = 1000) %>% 
+               filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+  geom_line(aes(x = ddist_node / 1000, y = wse), lwd = 1) +
+  scale_color_viridis_d(option = "C", direction = 1, end = 0.8) +
+  scale_x_continuous(expand = c(0.01, 0), position = "bottom") +
+  scale_y_continuous(expand = c(0, 0), limits = c(-110, 1100)) +
+  labs(x = "Downstream distance (km)",
+       y = "Elevation (m)",
+       color = "Type of obstructions") +
+  theme(panel.background = element_blank(),
+        # legend.position = c(0.9, 0.6),
+        text = element_text(size = 24),
+        axis.line = element_line())
+
+river_profile
+
+river_profile %>% 
+  ggsave(filename = "figs/agu_figures/mississippi.pdf",
+         width = 30,
+         height = 5)
+
+# ## slopes
+# elevation = river_node %>% 
+#   as.data.frame() %>% 
+#   select(ddist_node , wse) %>% 
+#   as_tibble()
+# 
+# elevation = elevation %>% 
+#   bind_cols(tibble(slope = c(0, diff(elevation$wse) / diff(elevation$ddist_node) * 1000)))
+# 
+# river_diff_elevation_profile = elevation %>% 
+#   ggplot() +
+#   geom_segment(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+#   geom_point(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+#   geom_segment(data = city_river_node_sf %>% 
+#                  mutate(xlower = 1000) %>% 
+#                  filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+#   geom_point(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+#   geom_text(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+#   geom_line(aes(x = ddist_node / 1000, y = slope), lwd = 1.5) +
+#   scale_color_viridis_d(option = "C", direction = -1, end = 0.8) +
+#   scale_x_continuous(expand = c(0, 0), position = "top") +
+#   scale_y_continuous(expand = c(0, 0)) +
+#   labs(x = "Downstream distance (km)",
+#        y = "Slope (m / km)",
+#        color = "Type of obstructions") +
+#   theme(panel.background = element_blank(),
+#         # legend.position = c(0.9, 0.6),
+#         text = element_text(size = 24))
+# 
+# river_diff_elevation_profile
+
+```
+
+
+## along river profile (Danube)
+
+```{r}
+basin_node = st_read("~/Downloads/shp/EU/eu_apriori_rivers_nodes_hb22_v01.shp", stringsAsFactors = F)
+basin_reach = st_read("~/Downloads/shp/EU/eu_apriori_rivers_reaches_hb22_v01.shp", stringsAsFactors = F)
+
+# basin_reach = basin_reach[st_is_valid(basin_reach), ]
+
+## reproject to buffer via meters
+basin_reach_projected = basin_reach %>% 
+  st_transform(crs = 54030) %>% 
+  mutate(short_id = as.integer(substr(reach_id, start = 3, stop = 10))) %>% 
+  select(reach_id, short_id)
+
+## remove empty geometries
+basin_reach_projected = basin_reach_projected[st_is_valid(basin_reach_projected), ]
+
+start_id = "22799900136"
+this_id = start_id
+result = tibble(index = 1, reach_id = this_id)
+
+## note downstream of 74299302321 does not decrease
+for (i in 2:300) {
+  
+  this_reach = basin_reach_projected %>% 
+    filter(reach_id == this_id)
+  
+  nxt_reach = this_reach %>% 
+    st_buffer(60) %>% 
+    st_join(basin_reach_projected %>% select(reach_id_nxt = reach_id, short_id_nxt = short_id), left = T) %>% 
+    arrange(short_id_nxt) %>% 
+    as.data.frame() %>% 
+    select(-geometry) %>% 
+    as_tibble
+  
+  nxt_reach_id_raw = setdiff(nxt_reach$reach_id_nxt, result$reach_id)
+  
+  nxt_reach_id = (nxt_reach %>% 
+    filter(reach_id_nxt %in% nxt_reach_id_raw) %>% 
+    arrange(short_id_nxt))$reach_id_nxt[1]
+  
+  print(paste0(i, "th ID is ", nxt_reach_id))
+  if (is.na(nxt_reach_id)) {break}
+  
+  result = bind_rows(result, tibble(index = i, reach_id = nxt_reach_id))
+  
+  this_id = nxt_reach_id
+}
+
+result = result %>% 
+  filter(!is.na(reach_id))
+
+result %>% 
+  inner_join(basin_reach_projected, by = "reach_id") %>% 
+  st_as_sf %>% 
+  ggplot() +
+  geom_sf(data = basin_reach %>% st_transform(crs = 54030), color = "darkgrey") +
+  geom_sf(aes(color = index)) +
+  scale_colour_viridis_c()
+
+river = result %>% 
+  inner_join(basin_reach) %>% 
+  st_as_sf
+
+down_stream_dist = river %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  group_by(index) %>% 
+  do({
+    this_index = .$index[1]
+    river %>% 
+      filter(index <= this_index) %>% 
+      summarise(ddist = sum(reach_len))
+  }) %>% 
+  ungroup()
+
+river = river %>% 
+  left_join(down_stream_dist, by = "index")
+
+river %>% 
+  st_transform(crs = 54030) %>% 
+  ggplot() +
+  geom_sf(aes(color = ddist / 1000)) +
+  scale_colour_viridis_c() +
+  labs(color = "Downstream\ndist (km)")
+```
+
+
+## make node level table with downstream distance
+
+```{r}
+river_node = basin_node %>% 
+  right_join(result %>% rename(reach_index = index), by = "reach_id") %>% 
+  st_as_sf
+
+# mapview::mapView(river_node["width"], color = NA)
+
+river_node_table = river_node %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  mutate(node_short_id = as.integer(substr(node_id, start = 11, stop = 13)))
+
+## calculate the downstream distance for each node of a reach with regard to the reach head
+ddist_in_reach = river_node_table %>% 
+  group_by(reach_id, node_id) %>% 
+  do({
+    dat = .
+    river_node_table %>% 
+      filter(reach_id == dat$reach_id[1],
+             node_short_id >= dat$node_short_id[1]) %>% 
+      summarise(ddist_in_reach = sum(node_len))
+  }) %>% 
+  ungroup()
+
+## calculate the overall downstream distance of each reach head
+ddist_reach_head = river %>% 
+  as.data.frame() %>% 
+  select(index, reach_id, ddist) %>% 
+  arrange(index) %>% 
+  as_tibble() %>% 
+  mutate()
+
+ddist_reach_head = ddist_reach_head %>% 
+  mutate(ddist_reach_head = ddist - ddist_reach_head$ddist[1]) # set the downstream distance of the most upstream reach head to 0
+
+## calculate overall downstream distance for each node
+
+ddist_node = ddist_in_reach %>% 
+  left_join(ddist_reach_head, by = "reach_id") %>% 
+  mutate(ddist_node = ddist_in_reach + ddist_reach_head) %>% 
+  select(node_id, ddist_node)
+
+river_node = river_node %>% 
+  inner_join(ddist_node, by = "node_id")
+
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse))
+
+
+## assign node id for grod structures nearby the river
+grod_river_node_sf = dat_fil_sf %>% 
+  st_transform(crs = 54030) %>% 
+  st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, width)), largest = T) %>% 
+  filter(!is.na(x)) %>% 
+  st_transform(crs = 4326)
+
+# ## assign node id to nearby cities
+# city_river_node_sf = maps::us.cities %>% 
+#   as_tibble %>% 
+#   rename(city_name = name,
+#          state = country.etc,
+#          population = pop) %>% 
+#   st_as_sf(crs = 4326, coords = c("long", "lat")) %>% 
+#   st_transform(crs = 54030) %>% 
+#   st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, 10000)), largest = T) %>% 
+#   filter(!is.na(x)) %>% 
+#   st_transform(crs = 4326)
+
+## plot grod data on top of river map
+river_node %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = grod_river_node_sf, aes(color = class_newnames), alpha = 0.8)
+
+## plot each category individually
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse)) +
+  geom_point(data = grod_river_node_sf, aes(x = ddist_node, y = wse), color = "red") +
+  # geom_point(data = city_river_node_sf, aes(x = ddist_node, y = wse), color = "blue") +
+  facet_wrap(~class_newnames, ncol = 1)
+
+## create different offset for different types of structures
+yoffset = grod_river_node_sf %>% 
+  as.data.frame() %>% 
+  select(class_newnames) %>% 
+  distinct() %>% 
+  as_tibble() %>% 
+  mutate(y_offset = 175 - as.integer(class_newnames) * 25)
+
+grod_river_node_sf = grod_river_node_sf %>% select(-y_offset) %>% 
+  left_join(yoffset, by = "class_newnames")
+
+save(river_node, grod_river_node_sf, file = "outputs/river_profile_Danube.RData")
+
+load("outputs/river_profile_Danube.RData", verbose = T)
+
+river_profile = river_node %>% 
+  ggplot() +
+  geom_segment(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+  geom_point(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+  # geom_segment(data = city_river_node_sf %>% 
+  #                mutate(xlower = 1000) %>% 
+  #                filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+  # geom_point(data = city_river_node_sf %>% 
+  #              mutate(xlower = 1000) %>% 
+  #              filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+  # geom_text(data = city_river_node_sf %>% 
+  #              mutate(xlower = 1000) %>% 
+  #              filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+  geom_line(aes(x = ddist_node / 1000, y = wse), lwd = 1.5) +
+  scale_color_viridis_d(option = "C", direction = 1, end = 0.8) +
+  scale_x_continuous(expand = c(0.01, 0), position = "bottom") +
+  scale_y_continuous(expand = c(0.1, 0)) +
+  labs(x = "Downstream distance (km)",
+       y = "Elevation (m)",
+       color = "Type of obstructions") +
+  theme(panel.background = element_blank(),
+        # legend.position = c(0.9, 0.6),
+        text = element_text(size = 24),
+        axis.line = element_line())
+
+river_profile
+
+river_profile %>% 
+  ggsave(filename = "figs/agu_figures/Danube.pdf",
+         width = 30,
+         height = 5)
+
+# ## slopes
+# elevation = river_node %>% 
+#   as.data.frame() %>% 
+#   select(ddist_node , wse) %>% 
+#   as_tibble()
+# 
+# elevation = elevation %>% 
+#   bind_cols(tibble(slope = c(0, diff(elevation$wse) / diff(elevation$ddist_node) * 1000)))
+# 
+# river_diff_elevation_profile = elevation %>% 
+#   ggplot() +
+#   geom_segment(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+#   geom_point(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+#   geom_segment(data = city_river_node_sf %>% 
+#                  mutate(xlower = 1000) %>% 
+#                  filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+#   geom_point(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+#   geom_text(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+#   geom_line(aes(x = ddist_node / 1000, y = slope), lwd = 1.5) +
+#   scale_color_viridis_d(option = "C", direction = -1, end = 0.8) +
+#   scale_x_continuous(expand = c(0, 0), position = "top") +
+#   scale_y_continuous(expand = c(0, 0)) +
+#   labs(x = "Downstream distance (km)",
+#        y = "Slope (m / km)",
+#        color = "Type of obstructions") +
+#   theme(panel.background = element_blank(),
+#         # legend.position = c(0.9, 0.6),
+#         text = element_text(size = 24))
+# 
+# river_diff_elevation_profile
+
+```
+
+## along river profile (Yangtz)
+
+```{r}
+basin_node = st_read("~/Downloads/shp/AS/as_apriori_rivers_nodes_hb43_v01.shp", stringsAsFactors = F)
+basin_reach = st_read("~/Downloads/shp/AS/as_apriori_rivers_reaches_hb43_v01.shp", stringsAsFactors = F)
+
+# basin_reach = basin_reach[st_is_valid(basin_reach), ]
+
+## reproject to buffer via meters
+basin_reach_projected = basin_reach %>% 
+  st_transform(crs = 54030) %>% 
+  mutate(short_id = as.integer(substr(reach_id, start = 3, stop = 10))) %>% 
+  select(reach_id, short_id)
+
+## remove empty geometries
+basin_reach_projected = basin_reach_projected[st_is_valid(basin_reach_projected), ]
+
+start_id = "43499600541"
+this_id = start_id
+result = tibble(index = 1, reach_id = this_id)
+
+## note downstream of 74299302321 does not decrease
+for (i in 2:400) {
+  
+  this_reach = basin_reach_projected %>% 
+    filter(reach_id == this_id)
+  
+  nxt_reach = this_reach %>% 
+    st_buffer(60) %>% 
+    st_join(basin_reach_projected %>% select(reach_id_nxt = reach_id, short_id_nxt = short_id), left = T) %>% 
+    arrange(short_id_nxt) %>% 
+    as.data.frame() %>% 
+    select(-geometry) %>% 
+    as_tibble
+  
+  nxt_reach_id_raw = setdiff(nxt_reach$reach_id_nxt, result$reach_id)
+  
+  nxt_reach_id = (nxt_reach %>% 
+    filter(reach_id_nxt %in% nxt_reach_id_raw) %>% 
+    arrange(short_id_nxt))$reach_id_nxt[1]
+  
+  print(paste0(i, "th ID is ", nxt_reach_id))
+  if (is.na(nxt_reach_id)) {break}
+  
+  result = bind_rows(result, tibble(index = i, reach_id = nxt_reach_id))
+  
+  this_id = nxt_reach_id
+}
+
+result = result %>% 
+  filter(!is.na(reach_id))
+
+result %>% 
+  inner_join(basin_reach_projected, by = "reach_id") %>% 
+  st_as_sf %>% 
+  ggplot() +
+  geom_sf(data = basin_reach %>% st_transform(crs = 54030), color = "darkgrey") +
+  geom_sf(aes(color = index)) +
+  scale_colour_viridis_c()
+
+    river = result %>% 
+  inner_join(basin_reach) %>% 
+  st_as_sf
+
+down_stream_dist = river %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  group_by(index) %>% 
+  do({
+    this_index = .$index[1]
+    river %>% 
+      filter(index <= this_index) %>% 
+      summarise(ddist = sum(reach_len))
+  }) %>% 
+  ungroup()
+
+river = river %>% 
+  left_join(down_stream_dist, by = "index")
+
+river %>% 
+  st_transform(crs = 54030) %>% 
+  ggplot() +
+  geom_sf(aes(color = ddist / 1000)) +
+  scale_colour_viridis_c() +
+  labs(color = "Downstream\ndist (km)")
+```
+
+
+## make node level table with downstream distance
+
+```{r}
+river_node = basin_node %>% 
+  right_join(result %>% rename(reach_index = index), by = "reach_id") %>% 
+  st_as_sf
+
+# mapview::mapView(river_node["width"], color = NA)
+
+river_node_table = river_node %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  mutate(node_short_id = as.integer(substr(node_id, start = 11, stop = 13)))
+
+## calculate the downstream distance for each node of a reach with regard to the reach head
+ddist_in_reach = river_node_table %>% 
+  group_by(reach_id, node_id) %>% 
+  do({
+    dat = .
+    river_node_table %>% 
+      filter(reach_id == dat$reach_id[1],
+             node_short_id >= dat$node_short_id[1]) %>% 
+      summarise(ddist_in_reach = sum(node_len))
+  }) %>% 
+  ungroup()
+
+## calculate the overall downstream distance of each reach head
+ddist_reach_head = river %>% 
+  as.data.frame() %>% 
+  select(index, reach_id, ddist) %>% 
+  arrange(index) %>% 
+  as_tibble() %>% 
+  mutate()
+
+ddist_reach_head = ddist_reach_head %>% 
+  mutate(ddist_reach_head = ddist - ddist_reach_head$ddist[1]) # set the downstream distance of the most upstream reach head to 0
+
+## calculate overall downstream distance for each node
+
+ddist_node = ddist_in_reach %>% 
+  left_join(ddist_reach_head, by = "reach_id") %>% 
+  mutate(ddist_node = ddist_in_reach + ddist_reach_head) %>% 
+  select(node_id, ddist_node)
+
+river_node = river_node %>% 
+  inner_join(ddist_node, by = "node_id")
+
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse))
+
+
+## assign node id for grod structures nearby the river
+grod_river_node_sf = dat_fil_sf %>% 
+  st_transform(crs = 54030) %>% 
+  st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, width)), largest = T) %>% 
+  filter(!is.na(x)) %>% 
+  st_transform(crs = 4326)
+
+# ## assign node id to nearby cities
+# city_river_node_sf = maps::us.cities %>% 
+#   as_tibble %>% 
+#   rename(city_name = name,
+#          state = country.etc,
+#          population = pop) %>% 
+#   st_as_sf(crs = 4326, coords = c("long", "lat")) %>% 
+#   st_transform(crs = 54030) %>% 
+#   st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, 10000)), largest = T) %>% 
+#   filter(!is.na(x)) %>% 
+#   st_transform(crs = 4326)
+
+## plot grod data on top of river map
+river_node %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = grod_river_node_sf, aes(color = class_newnames), alpha = 0.8)
+
+## plot each category individually
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse)) +
+  geom_point(data = grod_river_node_sf, aes(x = ddist_node, y = wse), color = "red") +
+  # geom_point(data = city_river_node_sf, aes(x = ddist_node, y = wse), color = "blue") +
+  facet_wrap(~class_newnames, ncol = 1)
+
+## create different offset for different types of structures
+yoffset = grod_river_node_sf %>% 
+  as.data.frame() %>% 
+  select(class_newnames) %>% 
+  distinct() %>% 
+  as_tibble() %>% 
+  mutate(y_offset = 175 - as.integer(class_newnames) * 25)
+
+grod_river_node_sf = grod_river_node_sf %>% 
+  left_join(yoffset, by = "class_newnames")
+
+save(river_node, grod_river_node_sf, file = "outputs/river_profile_Danube.RData")
+
+load("outputs/river_profile_Danube.RData", verbose = T)
+
+river_profile = river_node %>% 
+  ggplot() +
+  geom_segment(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+  geom_point(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+  # geom_segment(data = city_river_node_sf %>% 
+  #                mutate(xlower = 1000) %>% 
+  #                filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+  # geom_point(data = city_river_node_sf %>% 
+  #              mutate(xlower = 1000) %>% 
+  #              filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+  # geom_text(data = city_river_node_sf %>% 
+  #              mutate(xlower = 1000) %>% 
+  #              filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+  geom_line(aes(x = ddist_node / 1000, y = wse), lwd = 1.5) +
+  scale_color_viridis_d(option = "C", direction = 1, end = 0.8) +
+  scale_x_continuous(expand = c(0.01, 0), position = "bottom") +
+  scale_y_continuous(expand = c(0.1, 0)) +
+  labs(x = "Downstream distance (km)",
+       y = "Elevation (m)",
+       color = "Type of obstructions") +
+  theme(panel.background = element_blank(),
+        # legend.position = c(0.9, 0.6),
+        text = element_text(size = 24),
+        axis.line = element_line())
+
+river_profile
+
+river_profile %>% 
+  ggsave(filename = "figs/agu_figures/Danube.pdf",
+         width = 20,
+         height = 3.5)
+
+# ## slopes
+# elevation = river_node %>% 
+#   as.data.frame() %>% 
+#   select(ddist_node , wse) %>% 
+#   as_tibble()
+# 
+# elevation = elevation %>% 
+#   bind_cols(tibble(slope = c(0, diff(elevation$wse) / diff(elevation$ddist_node) * 1000)))
+# 
+# river_diff_elevation_profile = elevation %>% 
+#   ggplot() +
+#   geom_segment(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+#   geom_point(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+#   geom_segment(data = city_river_node_sf %>% 
+#                  mutate(xlower = 1000) %>% 
+#                  filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+#   geom_point(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+#   geom_text(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+#   geom_line(aes(x = ddist_node / 1000, y = slope), lwd = 1.5) +
+#   scale_color_viridis_d(option = "C", direction = -1, end = 0.8) +
+#   scale_x_continuous(expand = c(0, 0), position = "top") +
+#   scale_y_continuous(expand = c(0, 0)) +
+#   labs(x = "Downstream distance (km)",
+#        y = "Slope (m / km)",
+#        color = "Type of obstructions") +
+#   theme(panel.background = element_blank(),
+#         # legend.position = c(0.9, 0.6),
+#         text = element_text(size = 24))
+# 
+# river_diff_elevation_profile
+
+```
+
+## along river profile (Lan Cang)
+
+```{r}
+basin_node = st_read("~/Downloads/shp/AS/as_apriori_rivers_nodes_hb44_v01.shp", stringsAsFactors = F)
+basin_reach = st_read("~/Downloads/shp/AS/as_apriori_rivers_reaches_hb44_v01.shp", stringsAsFactors = F)
+
+# basin_reach = basin_reach[st_is_valid(basin_reach), ]
+
+## reproject to buffer via meters
+basin_reach_projected = basin_reach %>% 
+  st_transform(crs = 54030) %>% 
+  mutate(short_id = as.integer(substr(reach_id, start = 3, stop = 10))) %>% 
+  select(reach_id, short_id)
+
+## remove empty geometries
+basin_reach_projected = basin_reach_projected[st_is_valid(basin_reach_projected), ]
+
+start_id = "44299000421"
+this_id = start_id
+result = tibble(index = 1, reach_id = this_id)
+
+## note downstream of 74299302321 does not decrease
+for (i in 301:500) {
+  
+  this_reach = basin_reach_projected %>% 
+    filter(reach_id == this_id)
+  
+  nxt_reach = this_reach %>% 
+    st_buffer(60) %>% 
+    st_join(basin_reach_projected %>% select(reach_id_nxt = reach_id, short_id_nxt = short_id), left = T) %>% 
+    arrange(short_id_nxt) %>% 
+    as.data.frame() %>% 
+    select(-geometry) %>% 
+    as_tibble
+  
+  nxt_reach_id_raw = setdiff(nxt_reach$reach_id_nxt, result$reach_id)
+  
+  nxt_reach_id = (nxt_reach %>% 
+    filter(reach_id_nxt %in% nxt_reach_id_raw) %>% 
+    arrange(short_id_nxt))$reach_id_nxt[1]
+  
+  print(paste0(i, "th ID is ", nxt_reach_id))
+  if (is.na(nxt_reach_id)) {break}
+  
+  result = bind_rows(result, tibble(index = i, reach_id = nxt_reach_id))
+  
+  this_id = nxt_reach_id
+}
+
+result = result %>% 
+  filter(!is.na(reach_id))
+
+result %>% 
+  inner_join(basin_reach_projected, by = "reach_id") %>% 
+  st_as_sf %>% 
+  ggplot() +
+  geom_sf(data = basin_reach %>% st_transform(crs = 54030), color = "darkgrey") +
+  geom_sf(aes(color = index)) +
+  scale_colour_viridis_c()
+
+river = result %>% 
+  inner_join(basin_reach) %>% 
+  st_as_sf
+
+down_stream_dist = river %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  group_by(index) %>% 
+  do({
+    this_index = .$index[1]
+    river %>% 
+      filter(index <= this_index) %>% 
+      summarise(ddist = sum(reach_len))
+  }) %>% 
+  ungroup()
+
+river = river %>% 
+  left_join(down_stream_dist, by = "index")
+
+river %>% 
+  st_transform(crs = 54030) %>% 
+  ggplot() +
+  geom_sf(aes(color = ddist / 1000)) +
+  scale_colour_viridis_c() +
+  labs(color = "Downstream\ndist (km)")
+```
+
+
+## make node level table with downstream distance
+
+```{r}
+river_node = basin_node %>% 
+  right_join(result %>% rename(reach_index = index), by = "reach_id") %>% 
+  st_as_sf
+
+# mapview::mapView(river_node["width"], color = NA)
+
+river_node_table = river_node %>% 
+  as.data.frame() %>% 
+  select(-geometry) %>% 
+  as_tibble() %>% 
+  mutate(node_short_id = as.integer(substr(node_id, start = 11, stop = 13)))
+
+## calculate the downstream distance for each node of a reach with regard to the reach head
+ddist_in_reach = river_node_table %>% 
+  group_by(reach_id, node_id) %>% 
+  do({
+    dat = .
+    river_node_table %>% 
+      filter(reach_id == dat$reach_id[1],
+             node_short_id <= dat$node_short_id[1]) %>% 
+      summarise(ddist_in_reach = sum(node_len))
+  }) %>% 
+  ungroup()
+
+## calculate the overall downstream distance of each reach head
+ddist_reach_head = river %>% 
+  as.data.frame() %>% 
+  select(index, reach_id, ddist) %>% 
+  arrange(index) %>% 
+  as_tibble() %>% 
+  mutate()
+
+ddist_reach_head = ddist_reach_head %>% 
+  mutate(ddist_reach_head = ddist - ddist_reach_head$ddist[1]) # set the downstream distance of the most upstream reach head to 0
+
+## calculate overall downstream distance for each node
+
+ddist_node = ddist_in_reach %>% 
+  left_join(ddist_reach_head, by = "reach_id") %>% 
+  mutate(ddist_node = ddist_in_reach + ddist_reach_head) %>% 
+  select(node_id, ddist_node)
+
+river_node = river_node %>% 
+  inner_join(ddist_node, by = "node_id")
+
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse))
+
+
+## assign node id for grod structures nearby the river
+grod_river_node_sf = dat_fil_sf %>% 
+  st_transform(crs = 54030) %>% 
+  st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, width)), largest = T) %>% 
+  filter(!is.na(x)) %>% 
+  st_transform(crs = 4326)
+
+# ## assign node id to nearby cities
+# city_river_node_sf = maps::us.cities %>% 
+#   as_tibble %>% 
+#   rename(city_name = name,
+#          state = country.etc,
+#          population = pop) %>% 
+#   st_as_sf(crs = 4326, coords = c("long", "lat")) %>% 
+#   st_transform(crs = 54030) %>% 
+#   st_join(river_node %>% st_transform(crs = 54030) %>% mutate(geometry = st_buffer(geometry, 10000)), largest = T) %>% 
+#   filter(!is.na(x)) %>% 
+#   st_transform(crs = 4326)
+
+## plot grod data on top of river map
+river_node %>% 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = grod_river_node_sf, aes(color = class_newnames), alpha = 0.8)
+
+## plot each category individually
+river_node %>% 
+  ggplot() +
+  geom_line(aes(x = ddist_node, y = wse)) +
+  geom_point(data = grod_river_node_sf, aes(x = ddist_node, y = wse), color = "red") +
+  # geom_point(data = city_river_node_sf, aes(x = ddist_node, y = wse), color = "blue") +
+  facet_wrap(~class_newnames, ncol = 1)
+
+## create different offset for different types of structures
+yoffset = grod_river_node_sf %>% 
+  as.data.frame() %>% 
+  select(class_newnames) %>% 
+  distinct() %>% 
+  as_tibble() %>% 
+  mutate(y_offset = as.integer(class_newnames) * 100)
+
+grod_river_node_sf = grod_river_node_sf %>% 
+  left_join(yoffset, by = "class_newnames")
+
+
+river_profile = river_node %>% 
+  ggplot() +
+  geom_segment(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse + 100), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+  geom_point(data = grod_river_node_sf %>% 
+               mutate(wse_upp = y_offset + wse + 100), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+  # geom_segment(data = city_river_node_sf %>% 
+  #                mutate(xlower = 1000) %>% 
+  #                filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+  # geom_point(data = city_river_node_sf %>% 
+  #              mutate(xlower = 1000) %>% 
+  #              filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+  # geom_text(data = city_river_node_sf %>% 
+  #              mutate(xlower = 1000) %>% 
+  #              filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+  geom_line(aes(x = ddist_node / 1000, y = wse), lwd = 1.5) +
+  scale_color_viridis_d(option = "C", direction = -1, end = 0.8) +
+  scale_x_continuous(expand = c(0, 0), position = "top") +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x = "Downstream distance (km)",
+       y = "Elevation (m)",
+       color = "Type of obstructions") +
+  theme(panel.background = element_blank(),
+        # legend.position = c(0.9, 0.6),
+        text = element_text(size = 24))
+
+river_profile
+
+river_profile %>% 
+  ggsave(filename = "figs/agu_figures/Lan Cang.pdf",
+         width = 30,
+         height = 4)
+
+# ## slopes
+# elevation = river_node %>% 
+#   as.data.frame() %>% 
+#   select(ddist_node , wse) %>% 
+#   as_tibble()
+# 
+# elevation = elevation %>% 
+#   bind_cols(tibble(slope = c(0, diff(elevation$wse) / diff(elevation$ddist_node) * 1000)))
+# 
+# river_diff_elevation_profile = elevation %>% 
+#   ggplot() +
+#   geom_segment(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse, xend = ddist_node / 1000, yend = wse_upp, color = class_newnames), size = 0.5, alpha = 0.7) +
+#   geom_point(data = grod_river_node_sf %>% 
+#                mutate(wse_upp = y_offset + wse + 50), aes(x = ddist_node / 1000, y = wse_upp, color = class_newnames), size = 2, alpha = 0.7) +
+#   geom_segment(data = city_river_node_sf %>% 
+#                  mutate(xlower = 1000) %>% 
+#                  filter(capital == 2), aes(x = ddist_node / 1000, y = wse, xend = xlower, yend = wse), size = 0.5, alpha = 0.7, color = "blue") +
+#   geom_point(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse), size = 2, alpha = 0.7, color = "blue") +
+#   geom_text(data = city_river_node_sf %>% 
+#                mutate(xlower = 1000) %>% 
+#                filter(capital == 2), aes(x = xlower, y = wse, label = city_name), color = "blue", hjust = 1) +
+#   geom_line(aes(x = ddist_node / 1000, y = slope), lwd = 1.5) +
+#   scale_color_viridis_d(option = "C", direction = -1, end = 0.8) +
+#   scale_x_continuous(expand = c(0, 0), position = "top") +
+#   scale_y_continuous(expand = c(0, 0)) +
+#   labs(x = "Downstream distance (km)",
+#        y = "Slope (m / km)",
+#        color = "Type of obstructions") +
+#   theme(panel.background = element_blank(),
+#         # legend.position = c(0.9, 0.6),
+#         text = element_text(size = 24))
+# 
+# river_diff_elevation_profile
+
+```
+
+
+<!-- ## single category map -->
+
+<!-- ```{r} -->
+<!-- index_table = tibble(name = levels(dat_fil_sf$class_newnames), index = sprintf("%02d", 1:6)) -->
+
+<!-- for (i in 1:nrow(index_table)) { -->
+<!--   singlec_grod_map =  -->
+<!--     dat_fil_sf %>%  -->
+<!--     sample_frac(1) %>% -->
+<!--     filter(class_newnames == index_table$name[i]) %>%  -->
+<!--     ggplot() + -->
+<!--     geom_sf(data = world, fill = "black", color = NA) + -->
+<!--     geom_point(data = legend_tibble, aes(x, y, color = class), alpha = 0) + -->
+<!--     geom_sf(aes(color = class_newnames), size = 0.5, show.legend = F, alpha = 0.8) + -->
+<!--     geom_sf(data = world, fill = NA, color = "black", lwd = 0.1) + -->
+<!--     coord_sf(crs = st_crs(54030),  -->
+<!--              xlim = c(xymin[1], xymax[1]),  -->
+<!--              ylim = c(xymin[2], xymax[2]), -->
+<!--              expand = T) + -->
+<!--     scale_color_manual(values = c('red','#ffffb3',"cyan",'#fb8072','green', 'grey')) + -->
+<!--     labs(title = "Draft Distribution of Structures in Global River Obstruction Database", -->
+<!--          subtitle = "Department of Geological Sciences, University of North Carolina at Chapel Hill, United States\nDepartment of Biosciences, Swansea University, United Kingdom", -->
+<!--          caption = "Funded by:\nSWOT Project Office at the NASA/Caltech Jet Propulsion Lab\nWelsh Government/ERDF", -->
+<!--          x = "", -->
+<!--          y = "",  -->
+<!--          color = "Category") + -->
+<!--     guides(color = guide_legend(override.aes = c(size = 2, alpha = 1))) + -->
+<!--     theme(axis.text.y = element_blank(), -->
+<!--           axis.text.x = element_blank(), -->
+<!--           axis.title = element_blank(), -->
+<!--           line = element_blank(), -->
+<!--           rect = element_blank(), -->
+<!--           panel.grid = element_blank(), -->
+<!--           legend.position = "bottom", -->
+<!--           legend.direction = "horizontal", -->
+<!--           legend.key = element_rect(color = "white", fill = "black"), -->
+<!--           legend.text = element_text(color = "black", face = "bold"), -->
+<!--           legend.title = element_blank(), -->
+<!--           panel.grid.major = element_line(color = "grey", size = 0.2), -->
+<!--           plot.title = element_text(hjust = 0.5, size = 18), -->
+<!--           plot.subtitle = element_text(hjust = 0.5, size = 10)) -->
+
+<!--   singlec_grod_map %>%  -->
+<!--     ggsave(filename = paste0("figs/grod_anim/grod_map_", index_table$index[i], "_", index_table$name[i], ".png"), -->
+<!--          width = 16.53, -->
+<!--          height = 11.69) -->
+<!-- } -->
+
+
+<!-- # convert -delay 4x1 *.png grod.gif -->
+<!-- ``` -->
+
