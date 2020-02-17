@@ -1,0 +1,105 @@
+---
+title: "Examine structures labeled uncertain"
+author: "Xiao Yang"
+date: "1/29/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(tidyverse)
+require(sf)
+```
+
+```{r}
+dat = st_read("outputs/GROD_dupesRemoved_20191028.shp")
+
+dat = dat %>% 
+  filter(class != "partial_dams")
+```
+
+## import reclassified data
+
+```{r}
+dat_new_1 = dir("data/reclassify_uncertain_structures/Sayali/", pattern = "*.csv", full.names = T, recursive = T) %>% 
+  purrr::map(read_csv) %>% 
+  reduce(bind_rows) %>% 
+  select(-`system:index`, -`.geo`) %>% 
+  distinct
+
+dat_new_2 = dir("data/reclassify_uncertain_structures/Mike/", pattern = "*.csv", full.names = T, recursive = T) %>% 
+  purrr::map(read_csv) %>% 
+  reduce(bind_rows) %>% 
+  select(-`system:index`, -`.geo`) %>% 
+  distinct
+
+dat_uncertain = rbind(dat_new_1, dat_new_2) %>% 
+  rename(new_class = class) %>% 
+  mutate(class = "Uncertain")
+
+new_uncerain_cat = dat %>% 
+  ggplot() +
+  geom_bar(aes(x = class)) +
+  geom_bar(data = dat_uncertain, aes(x = class, fill = new_class)) +
+  labs(fill = "Class",
+       x = "",
+       y = "Count") +
+  # scale_y_discrete(expand = c(0.01, 0.2)) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = c(0.8, 0.7)
+  )
+
+new_uncerain_cat
+
+new_uncerain_cat %>% 
+  ggsave(filename = "figs/new_uncerain_cat_20200129.png",
+         width = 8,
+         height = 6,
+         dpi = 300)
+```
+
+
+```{r}
+merged = dat %>% 
+  filter(class != "Uncertain") %>% 
+  mutate(lon = st_coordinates(geometry)[, 1],
+         lat = st_coordinates(geometry)[, 2]) %>% 
+  as_data_frame() %>% 
+  select(-geometry, -name) %>% 
+  as_tibble() %>% 
+  mutate(class = as.character(class)) %>% 
+  bind_rows(dat_uncertain %>% 
+              select(-class) %>% 
+              rename(class = new_class)) %>% 
+  distinct() %>% 
+  mutate(class = as.factor(class))
+
+merged %>% summary()
+
+nrow(merged)
+
+merged_sf = merged %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+write_sf(merged_sf, dsn = "outputs/GROD_reclassified_uncertain_20200211.shp")
+```
+
+## label 10% of the data to reclassify in GEE
+
+```{r}
+require(sf)
+require(tidyverse)
+
+grod = st_read("outputs/GROD_reclassified_uncertain_20200211.shp")
+
+set.seed(2020)
+sub10_grod = grod %>% 
+  sample_frac(size = 0.1,
+              replace = F) %>% 
+  mutate(index = 1:nrow(.))
+
+st_write(sub10_grod, dsn = "outputs/GROD_assessment_10percent_20200217.shp")
+```
+
