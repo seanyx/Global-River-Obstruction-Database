@@ -1,0 +1,31 @@
+---
+title: "Reclassify 10% structures"
+author: "Xiao Yang"
+date: "4/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(sf)
+require(tidyverse)
+```
+
+
+## data shared with Bernhard
+
+```{r}
+grod = st_read("outputs/GROD_reclassified_uncertain_20200211.shp")
+
+grodFil = grod %>% 
+  filter(class %in% c("Dam", "Low_Permeable_Dams", "Locks")) %>% 
+  mutate(class = factor(as.character(class), levels = c("Dam", "Low_Permeable_Dams", "Locks"), labels = c("Dam", "Low Permeable Dam", "Lock")))
+
+grodFil = grodFil %>% 
+  mutate(id = 1:nrow(grodFil)) %>% 
+  mutate(longitude = st_coordinates(geometry)[, 1],
+         latitude = st_coordinates(geometry)[, 2])
+
+st_write(grodFil, dsn = "outputs/GROD_data_3classes.shp")
+```
