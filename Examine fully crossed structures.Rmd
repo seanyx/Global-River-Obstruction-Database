@@ -1,0 +1,45 @@
+---
+title: "Reclassify 10% structures"
+author: "Xiao Yang"
+date: "4/13/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(sf)
+require(tidyverse)
+```
+
+## label 10% of the data to reclassify in GEE
+
+```{r}
+grod = st_read("outputs/GROD_reclassified_uncertain_20200211.shp")
+
+grod = grod %>%
+  mutate(grod_id = 1:nrow(grod))
+
+st_write(grod, dsn = "outputs/GROD_v1_6classes_withID_20200530.shp")
+  
+subGrod = grod %>% 
+  filter(class %in% c("Dam", "Low_Permeable_Dams", "Locks"))
+
+
+
+print("how many structures in total?")
+subGrod %>% nrow()
+subGrod %>% st_drop_geometry() %>% group_by(class) %>% count() %>% ungroup
+
+## add index just for this step
+subGrod = subGrod %>% 
+  mutate(index = 1:nrow(.))
+
+subGrod %>% 
+  ggplot() + 
+  geom_bar(aes(x = class)) +
+  theme(axis.text.x.bottom = element_text(hjust = 1, angle = 45)) +
+  labs(x = "", y = "Count")
+
+st_write(subGrod, dsn = "outputs/subGrod_fully_crossed_classes_20200530.shp")
+```
