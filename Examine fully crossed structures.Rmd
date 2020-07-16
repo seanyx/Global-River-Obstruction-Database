@@ -12,7 +12,7 @@ require(sf)
 require(tidyverse)
 ```
 
-## label 10% of the data to reclassify in GEE
+## export the fully crossed structures (dll) reclassify in GEE
 
 ```{r}
 grod = st_read("outputs/GROD_reclassified_uncertain_20200211.shp")
@@ -43,3 +43,101 @@ subGrod %>%
 
 st_write(subGrod, dsn = "outputs/subGrod_fully_crossed_classes_20200530.shp")
 ```
+
+## latest results
+
+```{r}
+range_index = tibble(name = c("Galit", "Riley", "Mike"), initIndex = c(1, 16874, 8437), maxIndex = c(8436, 25307, 16873))
+
+require(foreach)
+fileInfo = tibble(
+  filePath = dir(path = "data/fully_crossed_structures", full.names = T),
+  filename = dir(path = "data/fully_crossed_structures")
+) %>% 
+  separate(filename, into = c("name", NA), sep = "_")
+
+dat = foreach(i = 1:nrow(fileInfo), .combine = "rbind") %do% {
+  read_csv(fileInfo$filePath[i]) %>% 
+    mutate(name = fileInfo$name[i])
+} %>% 
+  select(-`system:index`, -`.geo`) %>% 
+  mutate(class = as.factor(class), name = as.factor(name)) %>% 
+  rename(class_new = class) %>% 
+  st_as_sf(coords = c("lon", "lat"), crs = 4326)
+
+dat = dat %>% mutate(row.id = 1:nrow(dat))
+
+ref = st_read("outputs/subGrod_fully_crossed_classes_20200530.shp")
+ref = ref %>% mutate(col.id = 1:nrow(ref))
+
+test = st_is_within_distance(dat, ref, dist = 500)
+test = test %>% as_tibble()
+
+merged = dat %>% left_join(test, by = "row.id") %>% left_join(ref %>% as_tibble(), by = "col.id") %>% 
+  group_by(row.id, col.id) %>% 
+  mutate(dist = st_distance(geometry.x, geometry.y)[1, 1]) %>% 
+  ungroup()
+
+## for structures with multiple matches, choose the one with minimal distance 
+merged_final = merged %>% 
+  group_by(row.id) %>% 
+  slice_min(order_by = dist) %>% 
+  ungroup()
+
+## no. of structures finished mapping and some stats
+progress = merged_final %>% 
+  left_join(range_index, by = "name") %>% 
+  filter(index >= initIndex, index <= maxIndex) %>% 
+  st_drop_geometry() %>% 
+  group_by(name) %>% 
+  summarise(currentIndex = max(index),
+            NoMapped = currentIndex - first(initIndex),
+            initIndex = first(initIndex),
+            nUncertain = sum(class_new == "Uncertain"),
+            nChanged = n()) %>% 
+  ungroup()
+
+progress %>% 
+  mutate(rateOfChange = nChanged / NoMapped,
+         rateOfUncertain = nUncertain / NoMapped) %>% 
+  select(-currentIndex)
+
+# now need to filled in the structures are left unchanged
+merged_unchanged = ref %>% 
+  filter(
+    (index >= progress[1, ]$initIndex & index <= progress[1, ]$currentIndex) | 
+      (index >= progress[2, ]$initIndex & index <= progress[2, ]$currentIndex) | 
+      (index >= progress[3, ]$initIndex & index <= progress[3, ]$currentIndex)) %>% 
+  filter(!(index %in% merged_final$index)) %>% 
+  mutate(class_new = class,
+         geometry.x = geometry) %>% 
+  select(index, grod_id, class_new, geometry.x, class)
+
+
+currentDll = merged_final %>% 
+  select(index, grod_id, class_new, geometry.x, class) %>% 
+  as_tibble() %>% 
+  rbind(merged_unchanged %>% st_drop_geometry())
+
+save(currentDll, file = "outputs/currentDll_7_16_2020.RData")
+```
+
+## flow diagram
+
+```{r}
+library(flipPlots)
+
+stats = currentDll %>% 
+  group_by(class, class_new) %>% 
+  count() %>% 
+  ungroup()
+
+SankeyDiagram(stats[, 1:2],
+              link.color = "Source",
+              variables.share.values = T,
+              label.show.varname = F,
+              label.show.percentages = T,
+              weights = stats$n,
+              font.size = 18)
+```
+
